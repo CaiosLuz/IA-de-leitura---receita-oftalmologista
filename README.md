@@ -42,8 +42,18 @@ os.environ["TESSDATA_PREFIX"] = r"C:\Program Files\Tesseract-OCR\tessdata"
 
 ## ▶️ Como Executar o Projeto
 
-1. Abra o terminal na pasta do projeto.
+1. Abra o terminal dentro da pasta do projeto ia-leitura.
 2. Execute o comando abaixo para iniciar o servidor:
 
    ```bash
    uvicorn main:app --reload
+   ````
+• A API será executada em:
+
+   ```
+   http://127.0.0.1:8000
+   ```
+• Para acessar a documentação interativa (Swagger UI), abra no navegador:
+   ```
+   http://127.0.0.1:8000/docs
+   ```
