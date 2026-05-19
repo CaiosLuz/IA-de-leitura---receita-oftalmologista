@@ -84,9 +84,7 @@ async def analisar_receita(file: UploadFile = File(...)):
     # Log para acompanhamento no servidor
     print(f"Resultado da análise: {dados}")
 
-    return {
-        "resultado": dados
-    }
+    return dados
 
 if __name__ == "__main__":
     import uvicorn
