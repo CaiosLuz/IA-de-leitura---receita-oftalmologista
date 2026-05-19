@@ -18,4 +18,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Porta que o Render geralmente espera (10000 ou 80)
 EXPOSE 80
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80"]
+CMD ["uvicorn", "ia-leitura.main:app", "--host", "0.0.0.0", "--port", "10000"]
