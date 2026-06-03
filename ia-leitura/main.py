@@ -18,9 +18,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ----------------------------
+# -----------------------------
 # CONFIG TESSERACT
-# ----------------------------
+# -----------------------------
 
 tesseract_bin = shutil.which("tesseract")
 
@@ -61,14 +61,13 @@ async def analisar_receita(
             return {
 
                 "erro":
-
                     "Imagem inválida"
 
             }
 
-        # ----------------------------
-        # REDUZ IMAGEM GRANDE
-        # ----------------------------
+        # -----------------------------
+        # REDUZ IMAGENS GIGANTES
+        # -----------------------------
 
         altura, largura = img.shape[:2]
 
@@ -96,9 +95,9 @@ async def analisar_receita(
 
             )
 
-        # ----------------------------
+        # -----------------------------
         # PRE PROCESSAMENTO
-        # ----------------------------
+        # -----------------------------
 
         gray = cv2.cvtColor(
 
@@ -133,8 +132,6 @@ async def analisar_receita(
 
         )
 
-        texto = texto.upper()
-
         texto = texto.replace(",", ".")
         texto = texto.replace("--", "-")
         texto = texto.replace("- ", "-")
@@ -150,7 +147,12 @@ async def analisar_receita(
 
         )
 
-        print("\n========= OCR =========\n")
+        texto_upper = texto.upper()
+
+        print(
+            "\n========== OCR =========="
+        )
+
         print(texto)
 
         dados = {}
@@ -159,120 +161,129 @@ async def analisar_receita(
 
             l.strip()
 
-            for l in texto.splitlines()
+            for l in texto_upper.splitlines()
 
             if l.strip()
 
         ]
 
-        for i, linha in enumerate(linhas):
+        try:
 
-            if linha in ["OD", "OE"]:
+            indice_longe = next(
 
-                olho = linha
+                i
 
-                candidatos = []
+                for i, l in enumerate(linhas)
 
-                for prox in linhas[i+1:]:
+                if "LONGE" in l
 
-                    # encontrou outro olho
-                    # para aqui
+            )
 
-                    if prox in ["OD", "OE"]:
+        except:
 
-                        break
+            indice_longe = -1
 
-                    encontrados = re.findall(
 
-                        r"-?\d+\.\d+|-?\d+",
+        if indice_longe != -1:
 
-                        prox
+            numeros = []
 
-                    )
+            for linha in linhas[indice_longe:]:
 
-                    candidatos.extend(
-                        encontrados
-                    )
+                encontrados = re.findall(
 
-                    if len(
-                        candidatos
-                    ) >= 6:
+                    r"-?\d+\.\d+|-?\d+",
 
-                        break
+                    linha
 
-                decimais = []
+                )
 
-                inteiros = []
+                numeros.extend(
+                    encontrados
+                )
 
-                for numero in candidatos:
+            decimais = []
 
-                    try:
+            inteiros = []
 
-                        if "." in numero:
+            for n in numeros:
 
-                            decimais.append(
+                try:
 
-                                float(
-                                    numero
-                                )
+                    if "." in n:
 
+                        decimais.append(
+                            float(n)
+                        )
+
+                    else:
+
+                        inteiro = int(n)
+
+                        if 1 <= inteiro <= 180:
+
+                            inteiros.append(
+                                inteiro
                             )
 
-                        else:
+                except:
 
-                            inteiro = int(
-                                numero
-                            )
+                    pass
 
-                            if (
+            print("NUMEROS EXTRAIDOS:", numeros)
 
-                                1 <= inteiro <= 180
+            if (
 
-                            ):
+                len(decimais) >= 4
 
-                                inteiros.append(
-                                    inteiro
-                                )
+                and
 
-                    except:
+                len(inteiros) >= 2
 
-                        pass
+            ):
 
-                if len(decimais) >= 2:
+                dados["OD"] = {
 
-                    eixo = None
+                    "esferico":
 
-                    for n in inteiros:
+                        decimais[0],
 
-                        eixo = n
-                        break
+                    "cilindrico":
 
-                    if eixo is not None:
+                        decimais[1],
 
-                        dados[olho] = {
+                    "eixo":
 
-                            "esferico":
+                        inteiros[0]
 
-                                decimais[0],
+                }
 
-                            "cilindrico":
+                dados["OE"] = {
 
-                                decimais[1],
+                    "esferico":
 
-                            "eixo":
+                        decimais[2],
 
-                                eixo
+                    "cilindrico":
 
-                        }
+                        decimais[3],
+
+                    "eixo":
+
+                        inteiros[1]
+
+                }
 
         print(
-            "\nResultado:",
+            "Resultado:",
             dados
         )
 
-        if len(
-            dados
-        ) == 0:
+        # -----------------------------
+        # SE NÃO ENCONTROU
+        # -----------------------------
+
+        if len(dados) == 0:
 
             return {
 
@@ -304,11 +315,8 @@ if __name__ == "__main__":
     port = int(
 
         os.environ.get(
-
             "PORT",
-
             8000
-
         )
 
     )
