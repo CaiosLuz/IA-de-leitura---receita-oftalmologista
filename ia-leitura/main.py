@@ -11,16 +11,39 @@ import os
 app = FastAPI()
 
 app.add_middleware(
+
     CORSMiddleware,
+
     allow_origins=["*"],
+
     allow_credentials=True,
+
     allow_methods=["*"],
-    allow_headers=["*"],
+
+    allow_headers=["*"]
+
 )
 
-# ====================================
+# ==================================
+# ROOT
+# ==================================
+
+@app.api_route(
+    "/",
+    methods=["GET","HEAD"]
+)
+def root():
+
+    return {
+
+        "status":"online"
+
+    }
+
+
+# ==================================
 # CONFIG TESSERACT
-# ====================================
+# ==================================
 
 tesseract_bin = shutil.which(
     "tesseract"
@@ -37,15 +60,18 @@ else:
         r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
 
-# ====================================
+# ==================================
 # OCR
-# ====================================
+# ==================================
 
 def executar_ocr(img):
 
     gray = cv2.cvtColor(
+
         img,
+
         cv2.COLOR_BGR2GRAY
+
     )
 
     gray = cv2.resize(
@@ -71,6 +97,10 @@ def executar_ocr(img):
 
         0
 
+    )
+
+    gray = cv2.equalizeHist(
+        gray
     )
 
     gray = cv2.adaptiveThreshold(
@@ -101,141 +131,252 @@ def executar_ocr(img):
     return texto
 
 
-# ====================================
-# NORMALIZA NUMEROS
-# ====================================
+# ==================================
+# NORMALIZA TEXTO OCR
+# ==================================
 
-def converter_numero(valor):
+def normalizar(texto):
 
-    valor = valor.replace(
+    texto = texto.upper()
+
+    texto = texto.replace(
+        ",",
+        "."
+    )
+
+    texto = texto.replace(
         "(",
         "-"
     )
 
-    valor = valor.replace(
+    texto = texto.replace(
         "[",
         "-"
     )
 
-    valor = valor.replace(
+    texto = texto.replace(
         "=",
         "-"
     )
 
-    valor = valor.replace(
-        "/",
-        "7"
+    texto = texto.replace(
+        "|",
+        " "
     )
 
-    if "." not in valor:
+    texto = texto.replace(
+        "O D",
+        "OD"
+    )
 
-        limpo = valor.replace(
-            "-",
-            ""
-        )
+    texto = texto.replace(
+        "O E",
+        "OE"
+    )
 
-        if len(limpo)==4:
+    return texto
 
-            valor = "-" + \
-                    limpo[0] + \
-                    "." + \
-                    limpo[1:]
+
+# ==================================
+# CONVERTER NUMERO
+# ==================================
+
+def converter_numero(v):
+
+    v=v.strip()
 
     try:
 
-        return float(
-            valor
-        )
+        return float(v)
 
     except:
 
-        return None
+        pass
 
+    apenas = re.sub(
 
-# ====================================
-# EXTRAI DADOS
-# ====================================
+        r"[^0-9]",
 
-def extrair_bloco(texto):
+        "",
 
-    nums = re.findall(
-
-        r"[-=\[\(]?\d+\.\d+|[-=\[\(]?\d+",
-
-        texto
+        v
 
     )
 
-    floats=[]
-    ints=[]
+    if len(apenas)==4:
 
-    for n in nums:
+        return -(
 
-        valor = converter_numero(
-            n
+            int(apenas)
+
+            /100
+
         )
 
-        if valor is None:
+    if len(apenas)==3:
 
-            continue
-
-        if abs(valor) < 40:
-
-            floats.append(
-                valor
-            )
-
-        elif 0 <= valor <= 180:
-
-            ints.append(
-                int(valor)
-            )
-
-    if (
-
-        len(floats)>=2
-
-        and
-
-        len(ints)>=1
-
-    ):
-
-        return {
-
-            "esferico":
-            floats[0],
-
-            "cilindrico":
-            floats[1],
-
-            "eixo":
-            ints[0]
-
-        }
+        return float(
+            apenas
+        )
 
     return None
 
 
-# ====================================
-# ROOT
-# ====================================
+# ==================================
+# PARSER RECEITA COMPLEXA
+# ==================================
 
-@app.get("/")
+def parser_complexo(texto):
 
-def root():
+    dados={}
 
-    return {
+    od = re.search(
 
-        "status":
-        "online"
+        r"OD.*?(-?\d+\.?\d*)\s+(-?\d+\.?\d*)\s+(\d{1,3})",
 
-    }
+        texto,
+
+        re.S
+
+    )
+
+    oe = re.search(
+
+        r"OE.*?(-?\d+\.?\d*)\s+(-?\d+\.?\d*)\s+(\d{1,3})",
+
+        texto,
+
+        re.S
+
+    )
+
+    if od:
+
+        dados["OD"]={
+
+            "esferico":
+
+            converter_numero(
+                od.group(1)
+            ),
+
+            "cilindrico":
+
+            converter_numero(
+                od.group(2)
+            ),
+
+            "eixo":
+
+            int(
+                od.group(3)
+            )
+
+        }
+
+    if oe:
+
+        dados["OE"]={
+
+            "esferico":
+
+            converter_numero(
+                oe.group(1)
+            ),
+
+            "cilindrico":
+
+            converter_numero(
+                oe.group(2)
+            ),
+
+            "eixo":
+
+            int(
+                oe.group(3)
+            )
+
+        }
+
+    return dados
 
 
-# ====================================
+# ==================================
+# PARSER RECEITA SIMPLES
+# ==================================
+
+def parser_simples(texto):
+
+    dados={}
+
+    od = re.search(
+
+        r"OLHO DIREITO.*?(-?\d+\.\d+).*?(-?\d+\.\d+).*?(\d{1,3})",
+
+        texto,
+
+        re.S
+
+    )
+
+    oe = re.search(
+
+        r"OLHO ESQUERDO.*?(-?\d+\.\d+).*?(-?\d+\.\d+).*?(\d{1,3})",
+
+        texto,
+
+        re.S
+
+    )
+
+    if od:
+
+        dados["OD"]={
+
+            "esferico":
+            float(
+                od.group(1)
+            ),
+
+            "cilindrico":
+            float(
+                od.group(2)
+            ),
+
+            "eixo":
+            int(
+                od.group(3)
+            )
+
+        }
+
+    if oe:
+
+        dados["OE"]={
+
+            "esferico":
+            float(
+                oe.group(1)
+            ),
+
+            "cilindrico":
+            float(
+                oe.group(2)
+            ),
+
+            "eixo":
+            int(
+                oe.group(3)
+            )
+
+        }
+
+    return dados
+
+
+# ==================================
 # ENDPOINT
-# ====================================
+# ==================================
 
 @app.post("/analisar")
 
@@ -271,6 +412,7 @@ async def analisar(
             return {
 
                 "erro":
+
                 "imagem invalida"
 
             }
@@ -279,133 +421,35 @@ async def analisar(
             img
         )
 
-        texto = texto.upper()
-
-        texto = texto.replace(
-            ",",
-            "."
+        texto = normalizar(
+            texto
         )
 
-        print(texto)
+        print(
+            "\n===== OCR ====="
+        )
 
-        linhas=[
+        print(
+            texto
+        )
 
-            l.strip()
+        dados = parser_complexo(
+            texto
+        )
 
-            for l in
-            texto.splitlines()
+        if (
 
-            if l.strip()
+            "OD" not in dados
 
-        ]
+            or
 
-        dados={}
+            "OE" not in dados
 
-        # =====================
-        # MODELO COMPLEXO
-        # =====================
-
-        for i,linha in enumerate(
-                linhas
         ):
 
-            if "OD" in linha:
-
-                bloco=" ".join(
-
-                    linhas[
-                    i:i+10
-                    ]
-
-                )
-
-                r = extrair_bloco(
-                    bloco
-                )
-
-                if r:
-
-                    dados["OD"]=r
-
-
-            if "OE" in linha:
-
-                bloco=" ".join(
-
-                    linhas[
-                    i:i+10
-                    ]
-
-                )
-
-                r = extrair_bloco(
-                    bloco
-                )
-
-                if r:
-
-                    dados["OE"]=r
-
-
-        # =====================
-        # MODELO SIMPLES
-        # =====================
-
-        if "OD" not in dados:
-
-            numeros = re.findall(
-
-                r"[-=]?\d+\.\d+|\d{1,3}",
-
+            dados = parser_simples(
                 texto
-
             )
-
-            convertidos=[]
-
-            for n in numeros:
-
-                valor = converter_numero(
-                    n
-                )
-
-                if valor is not None:
-
-                    convertidos.append(
-                        valor
-                    )
-
-            if len(convertidos)>=6:
-
-                dados["OD"]={
-
-                    "esferico":
-                    convertidos[0],
-
-                    "cilindrico":
-                    convertidos[1],
-
-                    "eixo":
-                    int(
-                        convertidos[2]
-                    )
-
-                }
-
-                dados["OE"]={
-
-                    "esferico":
-                    convertidos[3],
-
-                    "cilindrico":
-                    convertidos[4],
-
-                    "eixo":
-                    int(
-                        convertidos[5]
-                    )
-
-                }
 
         print(
             "RESULTADO",
@@ -425,6 +469,7 @@ async def analisar(
             return {
 
                 "erro":
+
                 "nao interpretado"
 
             }
@@ -438,6 +483,7 @@ async def analisar(
         return {
 
             "erro":
+
             str(e)
 
         }
