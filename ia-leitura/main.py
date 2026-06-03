@@ -139,9 +139,14 @@ async def analisar_receita(file: UploadFile = File(...)):
 
         od = re.search(
 
-            r"OD\s+(-?\d+[.,]\d+)\s+(-?\d+[.,]\d+)\s+(\d+)",
+            r"OD[\s\S]{0,50}?"
+            r"(-?\d+[.,]\d+)[\s\S]{0,20}?"
+            r"(-?\d+[.,]\d+)[\s\S]{0,20}?"
+            r"(\d{1,3})",
 
-            texto_upper
+            texto_upper,
+
+            re.DOTALL
 
         )
 
@@ -173,9 +178,14 @@ async def analisar_receita(file: UploadFile = File(...)):
 
         oe = re.search(
 
-            r"OE\s+(-?\d+[.,]\d+)\s+(-?\d+[.,]\d+)\s+(\d+)",
+            r"OE[\s\S]{0,50}?"
+            r"(-?\d+[.,]\d+)[\s\S]{0,20}?"
+            r"(-?\d+[.,]\d+)[\s\S]{0,20}?"
+            r"(\d{1,3})",
 
-            texto_upper
+            texto_upper,
+
+            re.DOTALL
 
         )
 
