@@ -1,6 +1,14 @@
+<<<<<<< HEAD
 fastapi
 uvicorn
 opencv-python-headless
 pytesseract
 numpy
+=======
+fastapi
+uvicorn
+opencv-python-headless
+pytesseract
+numpy
+>>>>>>> 3e46b1f00a0816d6cd565994c2716e87b06575eb
 python-multipart
