@@ -18,9 +18,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --------------------------------
+# =====================================
 # CONFIG TESSERACT
-# --------------------------------
+# =====================================
 
 tesseract_bin = shutil.which("tesseract")
 
@@ -37,15 +37,15 @@ else:
         r"C:\Program Files\Tesseract-OCR\tessdata"
 
 
-# --------------------------------
-# EXTRAÇÃO AUXILIAR
-# --------------------------------
+# =====================================
+# AUXILIAR EXTRAÇÃO
+# =====================================
 
-def extrair_bloco(bloco):
+def extrair_bloco(texto):
 
     nums = re.findall(
         r"-?\d+\.\d+|-?\d+",
-        bloco
+        texto
     )
 
     floats = []
@@ -60,14 +60,20 @@ def extrair_bloco(bloco):
                 valor = float(n)
 
                 if abs(valor) < 40:
-                    floats.append(valor)
+
+                    floats.append(
+                        valor
+                    )
 
             else:
 
                 valor = int(n)
 
                 if 0 <= valor <= 180:
-                    ints.append(valor)
+
+                    ints.append(
+                        valor
+                    )
 
         except:
             pass
@@ -77,7 +83,9 @@ def extrair_bloco(bloco):
         return {
 
             "esferico": floats[0],
+
             "cilindrico": floats[1],
+
             "eixo": ints[0]
 
         }
@@ -85,9 +93,92 @@ def extrair_bloco(bloco):
     return None
 
 
-# --------------------------------
+# =====================================
+# OCR
+# =====================================
+
+def executar_ocr(img):
+
+    gray = cv2.cvtColor(
+        img,
+        cv2.COLOR_BGR2GRAY
+    )
+
+    # aumenta resolução
+
+    gray = cv2.resize(
+
+        gray,
+
+        None,
+
+        fx=3,
+
+        fy=3,
+
+        interpolation=
+        cv2.INTER_CUBIC
+
+    )
+
+    # reduz ruído
+
+    gray = cv2.GaussianBlur(
+
+        gray,
+
+        (3,3),
+
+        0
+
+    )
+
+    # melhora contraste
+
+    gray = cv2.equalizeHist(
+        gray
+    )
+
+    # adaptive threshold
+
+    gray = cv2.adaptiveThreshold(
+
+        gray,
+
+        255,
+
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+
+        cv2.THRESH_BINARY,
+
+        31,
+
+        10
+
+    )
+
+    cv2.imwrite(
+        "debug_receita.jpg",
+        gray
+    )
+
+    config = \
+        r'--oem 3 --psm 11 -l por'
+
+    texto = pytesseract.image_to_string(
+
+        gray,
+
+        config=config
+
+    )
+
+    return texto
+
+
+# =====================================
 # ENDPOINT
-# --------------------------------
+# =====================================
 
 @app.post("/analisar")
 async def analisar_receita(
@@ -111,147 +202,129 @@ async def analisar_receita(
         if img is None:
 
             return {
-                "erro":"Imagem inválida"
-            }
 
-        # --------------------------
-        # resize
-        # --------------------------
+                "erro":
+                "Imagem inválida"
+
+            }
 
         altura, largura = img.shape[:2]
 
-        if largura > 1000:
+        if largura > 1200:
 
-            escala = 1000 / largura
+            escala = 1200 / largura
 
             img = cv2.resize(
 
                 img,
 
                 (
-                    1000,
+
+                    1200,
+
                     int(
                         altura *
                         escala
                     )
+
                 )
 
             )
 
-        # --------------------------
-        # preprocessamento
-        # --------------------------
-
-        gray = cv2.cvtColor(
-            img,
-            cv2.COLOR_BGR2GRAY
-        )
-
-        gray = cv2.GaussianBlur(
-            gray,
-            (3,3),
-            0
-        )
-
-        gray = cv2.resize(
-
-            gray,
-
-            None,
-
-            fx=2,
-
-            fy=2,
-
-            interpolation=
-            cv2.INTER_CUBIC
-
-        )
-
-        gray = cv2.threshold(
-
-            gray,
-
-            0,
-
-            255,
-
-            cv2.THRESH_BINARY
-            |
-            cv2.THRESH_OTSU
-
-        )[1]
-
-        custom_config = \
-            r'--oem 3 --psm 4 -l por'
-
-        texto = pytesseract.image_to_string(
-
-            gray,
-
-            config=
-            custom_config
-
+        texto = executar_ocr(
+            img
         )
 
         texto_upper = \
-            texto.upper().replace(",", ".")
+            texto.upper().replace(
+                ",",
+                "."
+            )
 
         print("\n========== OCR ==========")
 
-        print(texto_upper)
-
-        dados = {}
+        print(
+            texto_upper
+        )
 
         linhas = [
 
             l.strip()
 
-            for l in texto_upper.splitlines()
+            for l in
+            texto_upper.splitlines()
 
             if l.strip()
 
         ]
 
-        # ===================================
-        # MODELO LONGE / OD / OE
-        # ===================================
+        dados = {}
 
-        for i, linha in enumerate(linhas):
+        # =====================================
+        # MODELO LONGE / OD / OE
+        # =====================================
+
+        for i, linha in enumerate(
+                linhas
+        ):
 
             if "OD" in linha:
 
                 bloco = " ".join(
-                    linhas[i:i+3]
+
+                    linhas[
+                    i:i+4
+                    ]
+
                 )
 
-                resultado = extrair_bloco(
+                print(
+                    "\nBLOCO OD:",
                     bloco
                 )
 
+                resultado = \
+                    extrair_bloco(
+                        bloco
+                    )
+
                 if resultado:
 
-                    dados["OD"] = resultado
+                    dados[
+                        "OD"
+                    ] = resultado
 
 
             if "OE" in linha:
 
                 bloco = " ".join(
-                    linhas[i:i+3]
+
+                    linhas[
+                    i:i+4
+                    ]
+
                 )
 
-                resultado = extrair_bloco(
+                print(
+                    "\nBLOCO OE:",
                     bloco
                 )
 
+                resultado = \
+                    extrair_bloco(
+                        bloco
+                    )
+
                 if resultado:
 
-                    dados["OE"] = resultado
+                    dados[
+                        "OE"
+                    ] = resultado
 
 
-        # ===================================
+        # =====================================
         # MODELO OLHO DIREITO
-        # ===================================
+        # =====================================
 
         if (
 
@@ -265,7 +338,7 @@ async def analisar_receita(
 
         ):
 
-            od_match = re.search(
+            od = re.search(
 
                 r"OLHO DIREITO(.*?)"
                 r"(-?\d+\.\d+)\s+"
@@ -278,7 +351,7 @@ async def analisar_receita(
 
             )
 
-            oe_match = re.search(
+            oe = re.search(
 
                 r"OLHO ESQUERDO(.*?)"
                 r"(-?\d+\.\d+)\s+"
@@ -291,52 +364,50 @@ async def analisar_receita(
 
             )
 
-            if od_match:
+            if od:
 
                 dados["OD"] = {
 
                     "esferico":
                     float(
-                        od_match.group(2)
+                        od.group(2)
                     ),
 
                     "cilindrico":
                     float(
-                        od_match.group(3)
+                        od.group(3)
                     ),
 
                     "eixo":
                     int(
-                        od_match.group(4)
+                        od.group(4)
                     )
 
                 }
 
-
-            if oe_match:
+            if oe:
 
                 dados["OE"] = {
 
                     "esferico":
                     float(
-                        oe_match.group(2)
+                        oe.group(2)
                     ),
 
                     "cilindrico":
                     float(
-                        oe_match.group(3)
+                        oe.group(3)
                     ),
 
                     "eixo":
                     int(
-                        oe_match.group(4)
+                        oe.group(4)
                     )
 
                 }
 
-
         print(
-            "Resultado:",
+            "\nResultado:",
             dados
         )
 
@@ -359,14 +430,14 @@ async def analisar_receita(
 
         return dados
 
-
     except Exception as e:
 
         print(e)
 
         return {
 
-            "erro":str(e)
+            "erro":
+            str(e)
 
         }
 
@@ -382,10 +453,15 @@ if __name__ == "__main__":
         host="0.0.0.0",
 
         port=int(
+
             os.environ.get(
+
                 "PORT",
+
                 8000
+
             )
+
         )
 
     )
