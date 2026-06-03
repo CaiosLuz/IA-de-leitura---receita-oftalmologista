@@ -118,6 +118,7 @@ async def analisar_receita(file: UploadFile = File(...)):
         texto = pytesseract.image_to_string(gray, config=custom_config)
 
         texto_upper = texto.upper()
+        texto_upper = texto_upper.replace(",", ".")
 
         print("\n========== OCR ==========")
         print(texto_upper)
