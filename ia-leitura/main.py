@@ -38,10 +38,13 @@ else:
 
 
 # =====================================
-# AUXILIAR EXTRAÇÃO
+# EXTRAÇÃO
 # =====================================
 
 def extrair_bloco(texto):
+
+    texto = texto.replace("(", "-")
+    texto = texto.replace("[", "-")
 
     numeros = re.findall(
         r"-?\d+\.\d+|-?\d+",
@@ -61,18 +64,33 @@ def extrair_bloco(texto):
 
                 if abs(valor) < 40:
 
-                    floats.append(valor)
+                    floats.append(
+                        valor
+                    )
 
             else:
 
                 valor = int(n)
 
-                if 0 <= valor <= 180:
+                # OCR transformou 1500 -> -1.50
 
-                    ints.append(valor)
+                if 1000 <= valor <= 3000:
+
+                    floats.append(
+                        -(valor / 1000)
+                    )
+
+                elif 0 <= valor <= 180:
+
+                    ints.append(
+                        valor
+                    )
 
         except:
             pass
+
+    print("FLOATS:", floats)
+    print("INTS:", ints)
 
     if len(floats) >= 2 and len(ints) >= 1:
 
@@ -100,8 +118,6 @@ def executar_ocr(img):
         cv2.COLOR_BGR2GRAY
     )
 
-    # aumenta resolução
-
     gray = cv2.resize(
 
         gray,
@@ -116,8 +132,6 @@ def executar_ocr(img):
 
     )
 
-    # reduz ruído
-
     gray = cv2.GaussianBlur(
 
         gray,
@@ -128,13 +142,9 @@ def executar_ocr(img):
 
     )
 
-    # melhora contraste
-
     gray = cv2.equalizeHist(
         gray
     )
-
-    # adaptive threshold
 
     gray = cv2.adaptiveThreshold(
 
@@ -191,10 +201,8 @@ async def analisar_receita(
         if img is None:
 
             return {
-
                 "erro":
                 "Imagem inválida"
-
             }
 
         altura, largura = img.shape[:2]
@@ -249,9 +257,9 @@ async def analisar_receita(
 
         dados = {}
 
-        # =====================================
+        # ==========================
         # MODELO LONGE / OD / OE
-        # =====================================
+        # ==========================
 
         for i, linha in enumerate(
                 linhas
@@ -262,9 +270,17 @@ async def analisar_receita(
                 bloco = " ".join(
 
                     linhas[
-                    i:i+4
+                    i:i+8
                     ]
 
+                )
+
+                print(
+                    "\nBLOCO OD:"
+                )
+
+                print(
+                    bloco
                 )
 
                 resultado = \
@@ -284,9 +300,17 @@ async def analisar_receita(
                 bloco = " ".join(
 
                     linhas[
-                    i:i+4
+                    i:i+8
                     ]
 
+                )
+
+                print(
+                    "\nBLOCO OE:"
+                )
+
+                print(
+                    bloco
                 )
 
                 resultado = \
@@ -301,9 +325,9 @@ async def analisar_receita(
                     ] = resultado
 
 
-        # =====================================
-        # MODELO OLHO DIREITO / ESQUERDO
-        # =====================================
+        # ==========================
+        # MODELO OLHO DIREITO
+        # ==========================
 
         if (
 
