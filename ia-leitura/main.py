@@ -18,13 +18,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-tesseract_bin = shutil.which("tesseract")
+# ====================================
+# CONFIG TESSERACT
+# ====================================
+
+tesseract_bin = shutil.which(
+    "tesseract"
+)
 
 if tesseract_bin:
-    pytesseract.pytesseract.tesseract_cmd = tesseract_bin
+
+    pytesseract.pytesseract.tesseract_cmd = \
+        tesseract_bin
+
 else:
+
     pytesseract.pytesseract.tesseract_cmd = \
         r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+
+
+# ====================================
+# OCR
+# ====================================
 
 def executar_ocr(img):
 
@@ -34,69 +49,121 @@ def executar_ocr(img):
     )
 
     gray = cv2.resize(
+
         gray,
+
         None,
+
         fx=3,
+
         fy=3,
-        interpolation=cv2.INTER_CUBIC
+
+        interpolation=
+        cv2.INTER_CUBIC
+
     )
 
     gray = cv2.GaussianBlur(
+
         gray,
+
         (3,3),
+
         0
+
     )
 
     gray = cv2.adaptiveThreshold(
+
         gray,
+
         255,
+
         cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+
         cv2.THRESH_BINARY,
+
         31,
+
         10
+
     )
 
-    config = r'--oem 3 --psm 11 -l por'
+    texto = pytesseract.image_to_string(
 
-    return pytesseract.image_to_string(
         gray,
-        config=config
+
+        config=
+        r'--oem 3 --psm 11 -l por'
+
     )
 
+    return texto
 
-def normalizar_numero(valor):
 
-    valor = valor.replace("(","-")
-    valor = valor.replace("[","-")
+# ====================================
+# NORMALIZA NUMEROS
+# ====================================
+
+def converter_numero(valor):
+
+    valor = valor.replace(
+        "(",
+        "-"
+    )
+
+    valor = valor.replace(
+        "[",
+        "-"
+    )
+
+    valor = valor.replace(
+        "=",
+        "-"
+    )
+
+    valor = valor.replace(
+        "/",
+        "7"
+    )
 
     if "." not in valor:
 
-        if valor.startswith("-"):
+        limpo = valor.replace(
+            "-",
+            ""
+        )
 
-            n = valor.replace("-","")
+        if len(limpo)==4:
 
-            if len(n)==4:
-
-                return float(
-                    "-" +
-                    n[0] +
-                    "." +
-                    n[1:]
-                )
+            valor = "-" + \
+                    limpo[0] + \
+                    "." + \
+                    limpo[1:]
 
     try:
-        return float(valor)
+
+        return float(
+            valor
+        )
+
     except:
+
         return None
 
 
+# ====================================
+# EXTRAI DADOS
+# ====================================
+
 def extrair_bloco(texto):
 
-    texto = texto.replace(",", ".")
-
     nums = re.findall(
-        r"[-\[\(]?\d+\.\d+|[-\[\(]?\d+",
+
+        r"[-=\[\(]?\d+\.\d+|[-=\[\(]?\d+",
+
         texto
+
     )
 
     floats=[]
@@ -104,229 +171,58 @@ def extrair_bloco(texto):
 
     for n in nums:
 
-        numero = normalizar_numero(
+        valor = converter_numero(
             n
         )
 
-        if numero is None:
+        if valor is None:
+
             continue
 
-        if abs(numero) < 40:
+        if abs(valor) < 40:
 
             floats.append(
-                numero
+                valor
             )
 
-        elif 0 <= numero <= 180:
+        elif 0 <= valor <= 180:
 
             ints.append(
-                int(numero)
+                int(valor)
             )
 
-    print("FLOATS",floats)
-    print("INTS",ints)
+    if (
 
-    if len(floats)>=2 and len(ints)>=1:
+        len(floats)>=2
+
+        and
+
+        len(ints)>=1
+
+    ):
 
         return {
 
             "esferico":
-                floats[0],
+            floats[0],
 
             "cilindrico":
-                floats[1],
+            floats[1],
 
             "eixo":
-                ints[0]
+            ints[0]
 
         }
 
     return None
 
 
-@app.post("/analisar")
-async def analisar(
-        file: UploadFile = File(...)
-):
-
-    image_bytes = await file.read()
-
-    npimg = np.frombuffer(
-        image_bytes,
-        np.uint8
-    )
-
-    img = cv2.imdecode(
-        npimg,
-        cv2.IMREAD_COLOR
-    )
-
-    texto = executar_ocr(
-        img
-    )
-
-    texto = texto.upper()
-    texto = texto.replace(",", ".")
-
-    print(texto)
-
-    linhas = [
-
-        l.strip()
-
-        for l in texto.splitlines()
-
-        if l.strip()
-
-    ]
-
-    dados={}
-
-    # MODELO COMPLEXO
-
-    for i,linha in enumerate(
-            linhas
-    ):
-
-        if "OD" in linha:
-
-            bloco = " ".join(
-                linhas[i:i+10]
-            )
-
-            print(
-                "BLOCO OD:",
-                bloco
-            )
-
-            resultado = extrair_bloco(
-                bloco
-            )
-
-            if resultado:
-
-                dados["OD"] = resultado
-
-
-        if "OE" in linha:
-
-            bloco = " ".join(
-                linhas[i:i+10]
-            )
-
-            print(
-                "BLOCO OE:",
-                bloco
-            )
-
-            resultado = extrair_bloco(
-                bloco
-            )
-
-            if resultado:
-
-                dados["OE"] = resultado
-
-    # MODELO SIMPLES
-
-    if (
-
-        "OLHO DIREITO"
-        in texto
-
-        and
-
-        "OLHO ESQUERDO"
-        in texto
-
-    ):
-
-        od = re.search(
-
-            r"OLHO DIREITO.*?"
-            r"(-?\d+\.\d+)\s+"
-            r"(-?\d+\.\d+)\s+"
-            r"(\d{1,3})",
-
-            texto,
-
-            re.S
-
-        )
-
-        oe = re.search(
-
-            r"OLHO ESQUERDO.*?"
-            r"(-?\d+\.\d+)\s+"
-            r"(-?\d+\.\d+)\s+"
-            r"(\d{1,3})",
-
-            texto,
-
-            re.S
-
-        )
-
-        if od:
-
-            dados["OD"]={
-
-                "esferico":
-                float(
-                    od.group(1)
-                ),
-
-                "cilindrico":
-                float(
-                    od.group(2)
-                ),
-
-                "eixo":
-                int(
-                    od.group(3)
-                )
-
-            }
-
-        if oe:
-
-            dados["OE"]={
-
-                "esferico":
-                float(
-                    oe.group(1)
-                ),
-
-                "cilindrico":
-                float(
-                    oe.group(2)
-                ),
-
-                "eixo":
-                int(
-                    oe.group(3)
-                )
-
-            }
-
-    print(
-        "RESULTADO",
-        dados
-    )
-
-    if not dados:
-
-        return {
-
-            "erro":
-            "Não foi possível interpretar"
-
-        }
-
-    return dados
-
+# ====================================
+# ROOT
+# ====================================
 
 @app.get("/")
+
 def root():
 
     return {
@@ -335,6 +231,216 @@ def root():
         "online"
 
     }
+
+
+# ====================================
+# ENDPOINT
+# ====================================
+
+@app.post("/analisar")
+
+async def analisar(
+
+        file: UploadFile = File(...)
+
+):
+
+    try:
+
+        image_bytes = \
+            await file.read()
+
+        npimg = np.frombuffer(
+
+            image_bytes,
+
+            np.uint8
+
+        )
+
+        img = cv2.imdecode(
+
+            npimg,
+
+            cv2.IMREAD_COLOR
+
+        )
+
+        if img is None:
+
+            return {
+
+                "erro":
+                "imagem invalida"
+
+            }
+
+        texto = executar_ocr(
+            img
+        )
+
+        texto = texto.upper()
+
+        texto = texto.replace(
+            ",",
+            "."
+        )
+
+        print(texto)
+
+        linhas=[
+
+            l.strip()
+
+            for l in
+            texto.splitlines()
+
+            if l.strip()
+
+        ]
+
+        dados={}
+
+        # =====================
+        # MODELO COMPLEXO
+        # =====================
+
+        for i,linha in enumerate(
+                linhas
+        ):
+
+            if "OD" in linha:
+
+                bloco=" ".join(
+
+                    linhas[
+                    i:i+10
+                    ]
+
+                )
+
+                r = extrair_bloco(
+                    bloco
+                )
+
+                if r:
+
+                    dados["OD"]=r
+
+
+            if "OE" in linha:
+
+                bloco=" ".join(
+
+                    linhas[
+                    i:i+10
+                    ]
+
+                )
+
+                r = extrair_bloco(
+                    bloco
+                )
+
+                if r:
+
+                    dados["OE"]=r
+
+
+        # =====================
+        # MODELO SIMPLES
+        # =====================
+
+        if "OD" not in dados:
+
+            numeros = re.findall(
+
+                r"[-=]?\d+\.\d+|\d{1,3}",
+
+                texto
+
+            )
+
+            convertidos=[]
+
+            for n in numeros:
+
+                valor = converter_numero(
+                    n
+                )
+
+                if valor is not None:
+
+                    convertidos.append(
+                        valor
+                    )
+
+            if len(convertidos)>=6:
+
+                dados["OD"]={
+
+                    "esferico":
+                    convertidos[0],
+
+                    "cilindrico":
+                    convertidos[1],
+
+                    "eixo":
+                    int(
+                        convertidos[2]
+                    )
+
+                }
+
+                dados["OE"]={
+
+                    "esferico":
+                    convertidos[3],
+
+                    "cilindrico":
+                    convertidos[4],
+
+                    "eixo":
+                    int(
+                        convertidos[5]
+                    )
+
+                }
+
+        print(
+            "RESULTADO",
+            dados
+        )
+
+        if (
+
+            "OD" not in dados
+
+            or
+
+            "OE" not in dados
+
+        ):
+
+            return {
+
+                "erro":
+                "nao interpretado"
+
+            }
+
+        return dados
+
+    except Exception as e:
+
+        print(e)
+
+        return {
+
+            "erro":
+            str(e)
+
+        }
 
 
 if __name__ == "__main__":
@@ -348,10 +454,15 @@ if __name__ == "__main__":
         host="0.0.0.0",
 
         port=int(
+
             os.environ.get(
+
                 "PORT",
+
                 8000
+
             )
+
         )
 
     )
