@@ -124,11 +124,7 @@ def executar_ocr(img):
         gray,
 
         config=
-<<<<<<< HEAD
-        r'--oem 3 --psm 6 -l por'
-=======
-        r'--oem 3 --psm 11 -l por'
->>>>>>> 3e46b1f00a0816d6cd565994c2716e87b06575eb
+            r'--oem 3 --psm 6 -l por'
 
     )
 
