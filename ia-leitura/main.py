@@ -100,50 +100,19 @@ def executar_ocr(img):
         cv2.COLOR_BGR2GRAY
     )
 
-    gray = cv2.resize(
+    gray = cv2.threshold(
 
         gray,
 
-        None,
-
-        fx=2,
-
-        fy=2,
-
-        interpolation=
-        cv2.INTER_CUBIC
-
-    )
-
-    gray = cv2.GaussianBlur(
-
-        gray,
-
-        (3,3),
-
-        0
-
-    )
-
-    gray = cv2.equalizeHist(
-        gray
-    )
-
-    gray = cv2.adaptiveThreshold(
-
-        gray,
+        0,
 
         255,
 
-        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY
+        |
+        cv2.THRESH_OTSU
 
-        cv2.THRESH_BINARY,
-
-        31,
-
-        10
-
-    )
+    )[1]
 
     config = \
         r'--oem 3 --psm 6 -l por'
@@ -193,7 +162,7 @@ async def analisar_receita(
 
         altura, largura = img.shape[:2]
 
-        if largura > 1000:
+        if largura > 1200:
 
             escala = 1000 / largura
 
