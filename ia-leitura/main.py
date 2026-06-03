@@ -39,6 +39,20 @@ async def analisar_receita(file: UploadFile = File(...)):
     npimg = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(npimg, cv2.IMREAD_COLOR)
 
+    altura, largura = img.shape[:2]
+
+    if largura > 1000:
+        escala = 1000 / largura
+
+        img = cv2.resize(
+            img,
+            (
+                1000,
+                int(altura * escala)
+            ),
+            interpolation=cv2.INTER_AREA
+        )
+
     if img is None:
         return {"erro": "Não foi possível processar a imagem enviada."}
 
@@ -48,7 +62,7 @@ async def analisar_receita(file: UploadFile = File(...)):
     gray = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
 
     # Configuração: OEM 3 (padrão), PSM 6 (bloco único de texto), Idioma Português
-    custom_config = r'--oem 3 --psm 6 -l por'
+    custom_config = r'--oem 3 --psm 11 -l por'
 
     # --- EXECUTA OCR ---
     texto = pytesseract.image_to_string(gray, config=custom_config)
@@ -62,26 +76,134 @@ async def analisar_receita(file: UploadFile = File(...)):
     texto = re.sub(r'(?<=\d)/(?=\d)', '.', texto)
 
     # Expressão regular para capturar Olho Direito/Esquerdo e os graus
-    padrao = re.compile(
-        r"OLHO\s+(DIREITO|ESQUERDO).*?(-?\d+[.,']?\d*)[^\d-]+(-?\d+[.,']?\d*)[^\d]+(\d{2,3})",
+    dados = {}
+
+    texto_upper = texto.upper()
+
+    # ========= PADRÃO 1
+    # OLHO DIREITO / ESQUERDO
+
+    padrao_olho = re.compile(
+
+        r"(OLHO\s+(DIREITO|ESQUERDO)).*?"
+        r"(-?\d+[.,]?\d*)"
+        r"[^\d-]+"
+        r"(-?\d+[.,]?\d*)"
+        r"[^\d]+"
+        r"(\d{1,3})",
+
         re.DOTALL
+
     )
 
-    dados = {}
-    for match in padrao.findall(texto):
-        lado_br, esf, cil, eixo = match
-        lado_id = 'OD' if lado_br == 'DIREITO' else 'OE'
-        
-        try:
-            dados[lado_id] = {
-                "esferico": float(esf.replace(',', '.').replace("'", "")),
-                "cilindrico": float(cil.replace(',', '.').replace("'", "")),
-                "eixo": int(eixo)
-            }
-        except ValueError:
-            continue # Pula caso algum valor não seja conversível
+    for match in padrao_olho.findall(texto_upper):
 
-    # Log para acompanhamento no servidor
+        _, lado, esf, cil, eixo = match
+
+        lado_id = (
+            "OD"
+            if lado == "DIREITO"
+            else "OE"
+        )
+
+        try:
+
+            dados[lado_id] = {
+
+                "esferico":
+                    float(
+                        esf.replace(",", ".")
+                    ),
+
+                "cilindrico":
+                    float(
+                        cil.replace(",", ".")
+                    ),
+
+                "eixo":
+                    int(
+                        eixo
+                    )
+
+            }
+
+        except:
+
+            pass
+
+
+    # ========= PADRÃO 2
+    # OD / OE tabelado
+
+    if "OD" not in dados:
+
+        od = re.search(
+
+            r"OD\s+(-?\d+[.,]\d+)\s+(-?\d+[.,]\d+)\s+(\d+)",
+
+            texto_upper
+
+        )
+
+        if od:
+
+            dados["OD"] = {
+
+                "esferico":
+                    float(
+                        od.group(1)
+                        .replace(",", ".")
+                    ),
+
+                "cilindrico":
+                    float(
+                        od.group(2)
+                        .replace(",", ".")
+                    ),
+
+                "eixo":
+                    int(
+                        od.group(3)
+                    )
+
+            }
+
+
+    if "OE" not in dados:
+
+        oe = re.search(
+
+            r"OE\s+(-?\d+[.,]\d+)\s+(-?\d+[.,]\d+)\s+(\d+)",
+
+            texto_upper
+
+        )
+
+        if oe:
+
+            dados["OE"] = {
+
+                "esferico":
+                    float(
+                        oe.group(1)
+                        .replace(",", ".")
+                    ),
+
+                "cilindrico":
+                    float(
+                        oe.group(2)
+                        .replace(",", ".")
+                    ),
+
+                "eixo":
+                    int(
+                        oe.group(3)
+                    )
+
+            }
+
+
+    print(f"Texto OCR:\n{texto}")
     print(f"Resultado da análise: {dados}")
 
     return dados
