@@ -132,85 +132,107 @@ async def analisar_receita(file: UploadFile = File(...)):
             pass
 
 
-    # ========= PADRÃO 2
-    # OD / OE tabelado
+   # ========= PADRÃO 2
+    # Estratégia baseada em linhas
 
-    if "OD" not in dados:
+    linhas = [
+        l.strip()
+        for l in texto_upper.splitlines()
+        if l.strip()
+    ]
 
-        od = re.search(
+    for i, linha in enumerate(linhas):
 
-            r"OD[\s\S]{0,50}?"
-            r"(-?\d+[.,]\d+)[\s\S]{0,20}?"
-            r"(-?\d+[.,]\d+)[\s\S]{0,20}?"
-            r"(\d{1,3})",
+        if linha == "OD":
 
-            texto_upper,
+            numeros = []
 
-            re.DOTALL
+            for prox in linhas[i+1:i+12]:
 
-        )
+                achados = re.findall(
+                    r"-?\d+\.\d+|-?\d+",
+                    prox
+                )
 
-        if od:
+                numeros.extend(achados)
 
-            dados["OD"] = {
+                if len(numeros) >= 3:
+                    break
 
-                "esferico":
-                    float(
-                        od.group(1)
-                        .replace(",", ".")
-                    ),
+            if len(numeros) >= 3:
 
-                "cilindrico":
-                    float(
-                        od.group(2)
-                        .replace(",", ".")
-                    ),
+                try:
 
-                "eixo":
-                    int(
-                        od.group(3)
-                    )
+                    dados["OD"] = {
 
-            }
+                        "esferico":
+                            float(
+                                numeros[0]
+                            ),
+
+                        "cilindrico":
+                            float(
+                                numeros[1]
+                            ),
+
+                        "eixo":
+                            int(
+                                float(
+                                    numeros[2]
+                                )
+                            )
+
+                    }
+
+                except:
+
+                    pass
 
 
-    if "OE" not in dados:
+        if linha == "OE":
 
-        oe = re.search(
+            numeros = []
 
-            r"OE[\s\S]{0,50}?"
-            r"(-?\d+[.,]\d+)[\s\S]{0,20}?"
-            r"(-?\d+[.,]\d+)[\s\S]{0,20}?"
-            r"(\d{1,3})",
+            for prox in linhas[i+1:i+12]:
 
-            texto_upper,
+                achados = re.findall(
+                    r"-?\d+\.\d+|-?\d+",
+                    prox
+                )
 
-            re.DOTALL
+                numeros.extend(achados)
 
-        )
+                if len(numeros) >= 3:
+                    break
 
-        if oe:
+            if len(numeros) >= 3:
 
-            dados["OE"] = {
+                try:
 
-                "esferico":
-                    float(
-                        oe.group(1)
-                        .replace(",", ".")
-                    ),
+                    dados["OE"] = {
 
-                "cilindrico":
-                    float(
-                        oe.group(2)
-                        .replace(",", ".")
-                    ),
+                        "esferico":
+                            float(
+                                numeros[0]
+                            ),
 
-                "eixo":
-                    int(
-                        oe.group(3)
-                    )
+                        "cilindrico":
+                            float(
+                                numeros[1]
+                            ),
 
-            }
+                        "eixo":
+                            int(
+                                float(
+                                    numeros[2]
+                                )
+                            )
+
+                    }
+
+                except:
+
+                    pass
 
 
     print(f"Texto OCR:\n{texto}")
