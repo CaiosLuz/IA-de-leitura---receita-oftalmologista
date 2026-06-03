@@ -43,7 +43,7 @@ else:
 
 def extrair_bloco(texto):
 
-    nums = re.findall(
+    numeros = re.findall(
         r"-?\d+\.\d+|-?\d+",
         texto
     )
@@ -51,7 +51,7 @@ def extrair_bloco(texto):
     floats = []
     ints = []
 
-    for n in nums:
+    for n in numeros:
 
         try:
 
@@ -61,9 +61,7 @@ def extrair_bloco(texto):
 
                 if abs(valor) < 40:
 
-                    floats.append(
-                        valor
-                    )
+                    floats.append(valor)
 
             else:
 
@@ -71,9 +69,7 @@ def extrair_bloco(texto):
 
                 if 0 <= valor <= 180:
 
-                    ints.append(
-                        valor
-                    )
+                    ints.append(valor)
 
         except:
             pass
@@ -104,24 +100,20 @@ def executar_ocr(img):
         cv2.COLOR_BGR2GRAY
     )
 
-    # aumenta resolução
-
     gray = cv2.resize(
 
         gray,
 
         None,
 
-        fx=3,
+        fx=2,
 
-        fy=3,
+        fy=2,
 
         interpolation=
         cv2.INTER_CUBIC
 
     )
-
-    # reduz ruído
 
     gray = cv2.GaussianBlur(
 
@@ -133,13 +125,9 @@ def executar_ocr(img):
 
     )
 
-    # melhora contraste
-
     gray = cv2.equalizeHist(
         gray
     )
-
-    # adaptive threshold
 
     gray = cv2.adaptiveThreshold(
 
@@ -157,13 +145,8 @@ def executar_ocr(img):
 
     )
 
-    cv2.imwrite(
-        "debug_receita.jpg",
-        gray
-    )
-
     config = \
-        r'--oem 3 --psm 11 -l por'
+        r'--oem 3 --psm 6 -l por'
 
     texto = pytesseract.image_to_string(
 
@@ -210,9 +193,9 @@ async def analisar_receita(
 
         altura, largura = img.shape[:2]
 
-        if largura > 1200:
+        if largura > 1000:
 
-            escala = 1200 / largura
+            escala = 1000 / largura
 
             img = cv2.resize(
 
@@ -220,7 +203,7 @@ async def analisar_receita(
 
                 (
 
-                    1200,
+                    1000,
 
                     int(
                         altura *
@@ -278,11 +261,6 @@ async def analisar_receita(
 
                 )
 
-                print(
-                    "\nBLOCO OD:",
-                    bloco
-                )
-
                 resultado = \
                     extrair_bloco(
                         bloco
@@ -305,11 +283,6 @@ async def analisar_receita(
 
                 )
 
-                print(
-                    "\nBLOCO OE:",
-                    bloco
-                )
-
                 resultado = \
                     extrair_bloco(
                         bloco
@@ -323,7 +296,7 @@ async def analisar_receita(
 
 
         # =====================================
-        # MODELO OLHO DIREITO
+        # MODELO OLHO DIREITO / ESQUERDO
         # =====================================
 
         if (
