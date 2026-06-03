@@ -100,22 +100,59 @@ def executar_ocr(img):
         cv2.COLOR_BGR2GRAY
     )
 
-    gray = cv2.threshold(
+    # aumenta resolução
+
+    gray = cv2.resize(
 
         gray,
 
-        0,
+        None,
+
+        fx=3,
+
+        fy=3,
+
+        interpolation=cv2.INTER_CUBIC
+
+    )
+
+    # reduz ruído
+
+    gray = cv2.GaussianBlur(
+
+        gray,
+
+        (3,3),
+
+        0
+
+    )
+
+    # melhora contraste
+
+    gray = cv2.equalizeHist(
+        gray
+    )
+
+    # adaptive threshold
+
+    gray = cv2.adaptiveThreshold(
+
+        gray,
 
         255,
 
-        cv2.THRESH_BINARY
-        |
-        cv2.THRESH_OTSU
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
 
-    )[1]
+        cv2.THRESH_BINARY,
 
-    config = \
-        r'--oem 3 --psm 6 -l por'
+        31,
+
+        10
+
+    )
+
+    config = r'--oem 3 --psm 11 -l por'
 
     texto = pytesseract.image_to_string(
 
