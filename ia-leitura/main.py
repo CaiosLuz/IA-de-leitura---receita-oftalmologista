@@ -18,9 +18,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# -----------------------------
+# ----------------------------
 # CONFIG TESSERACT
-# -----------------------------
+# ----------------------------
 
 tesseract_bin = shutil.which("tesseract")
 
@@ -61,13 +61,14 @@ async def analisar_receita(
             return {
 
                 "erro":
+
                     "Imagem inválida"
 
             }
 
-        # -----------------------------
-        # REDUZ IMAGENS GIGANTES
-        # -----------------------------
+        # ----------------------------
+        # REDUZ IMAGEM GRANDE
+        # ----------------------------
 
         altura, largura = img.shape[:2]
 
@@ -95,9 +96,9 @@ async def analisar_receita(
 
             )
 
-        # -----------------------------
+        # ----------------------------
         # PRE PROCESSAMENTO
-        # -----------------------------
+        # ----------------------------
 
         gray = cv2.cvtColor(
 
@@ -132,6 +133,8 @@ async def analisar_receita(
 
         )
 
+        texto = texto.upper()
+
         texto = texto.replace(",", ".")
         texto = texto.replace("--", "-")
         texto = texto.replace("- ", "-")
@@ -147,25 +150,16 @@ async def analisar_receita(
 
         )
 
-        texto_upper = texto.upper()
-
-        print(
-            "\n========== OCR =========="
-        )
-
+        print("\n========= OCR =========\n")
         print(texto)
 
         dados = {}
-
-        # -----------------------------
-        # PROCURA OD / OE
-        # -----------------------------
 
         linhas = [
 
             l.strip()
 
-            for l in texto_upper.splitlines()
+            for l in texto.splitlines()
 
             if l.strip()
 
@@ -179,9 +173,14 @@ async def analisar_receita(
 
                 candidatos = []
 
-                for prox in linhas[
-                    i+1:i+20
-                ]:
+                for prox in linhas[i+1:]:
+
+                    # encontrou outro olho
+                    # para aqui
+
+                    if prox in ["OD", "OE"]:
+
+                        break
 
                     encontrados = re.findall(
 
@@ -195,76 +194,85 @@ async def analisar_receita(
                         encontrados
                     )
 
+                    if len(
+                        candidatos
+                    ) >= 6:
+
+                        break
+
                 decimais = []
 
                 inteiros = []
 
-                for n in candidatos:
+                for numero in candidatos:
 
-                    if "." in n:
+                    try:
 
-                        try:
+                        if "." in numero:
 
                             decimais.append(
-                                float(n)
+
+                                float(
+                                    numero
+                                )
+
                             )
 
-                        except:
+                        else:
 
-                            pass
+                            inteiro = int(
+                                numero
+                            )
 
-                    else:
+                            if (
 
-                        try:
+                                1 <= inteiro <= 180
 
-                            inteiro = int(n)
-
-                            if 0 <= inteiro <= 180:
+                            ):
 
                                 inteiros.append(
                                     inteiro
                                 )
 
-                        except:
+                    except:
 
-                            pass
+                        pass
 
-                if (
+                if len(decimais) >= 2:
 
-                    len(decimais) >= 2
+                    eixo = None
 
-                    and
+                    for n in inteiros:
 
-                    len(inteiros) >= 1
+                        eixo = n
+                        break
 
-                ):
+                    if eixo is not None:
 
-                    dados[olho] = {
+                        dados[olho] = {
 
-                        "esferico":
+                            "esferico":
 
-                            decimais[0],
+                                decimais[0],
 
-                        "cilindrico":
+                            "cilindrico":
 
-                            decimais[1],
+                                decimais[1],
 
-                        "eixo":
+                            "eixo":
 
-                            inteiros[0]
+                                eixo
 
-                    }
+                        }
 
         print(
-            "Resultado:",
+            "\nResultado:",
             dados
         )
 
-        # -----------------------------
-        # SE NÃO ENCONTROU
-        # -----------------------------
-
-        if len(dados) == 0:
+        if len(
+            dados
+        ) == 0:
 
             return {
 
@@ -296,8 +304,11 @@ if __name__ == "__main__":
     port = int(
 
         os.environ.get(
+
             "PORT",
+
             8000
+
         )
 
     )
